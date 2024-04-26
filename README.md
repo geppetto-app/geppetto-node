@@ -2,6 +2,10 @@
 
 [![NPM version](https://img.shields.io/npm/v/@geppetto-app/geppetto.svg)](https://www.npmjs.com/package/@geppetto-app/geppetto)
 
+This library is a simple wrapper of the [geppetto.app](https://geppetto.app) API.
+
+Currently it only supports speaking (text to speech) but more modalities will be added in the future.
+
 ## Installation
 
 ```sh
