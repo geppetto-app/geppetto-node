@@ -14,7 +14,9 @@ npm install @geppetto-app/geppetto
 
 ## Usage
 
-There are two primary ways
+There are two primary ways to use the library, sync and streaming. 
+Sync will return the entire audio file as a buffer, while streaming will return a readable stream of the audio file. 
+Streaming is useful in applications where you want the lowest possible latency from generation to speaking time.
 
 ### Sync
 
