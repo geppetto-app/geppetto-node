@@ -1,8 +1,9 @@
 {
   "name": "@geppetto-app/geppetto",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "main": "dist/index.js",
   "module": "index.ts",
+  "description": "A TypeScript client for the Geppetto API",
   "devDependencies": {
     "@types/bun": "latest",
     "@types/node": "^20.12.7"
