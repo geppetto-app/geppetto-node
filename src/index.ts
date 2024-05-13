@@ -5,7 +5,13 @@ export interface ClientOptions {
   baseURL?: string;
 }
 
-export type GeppettoSpeakers = "semaine" | "ryan";
+export type GeppettoSpeakers =
+  | "semaine"
+  | "ryan"
+  | "kim"
+  | "spike"
+  | "obadiah"
+  | "poppy";
 export type GeppettoSpeakFormats = "wav" | "mp3" | "pcm" | "ogg";
 
 export interface SpeakOptions {
