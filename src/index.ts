@@ -1,114 +1,62 @@
-import { z } from "zod";
+import { SpeakOptions } from "./types/speak.js";
+import {
+  SeeOptions,
+  SeeResponse,
+  SeeResponseSchema,
+  SeeResponseVerbose,
+  SeeResponseVerboseSchema,
+  SeeStreamingResponse,
+  SeeStreamingResponseSchema,
+} from "./types/see.js";
+import {
+  HearOptions,
+  HearResponse,
+  HearResponseSchema,
+  HearResponseVerbose,
+  HearResponseVerboseSchema,
+} from "./types/hear.js";
+import { fileTypeFromBuffer } from "file-type";
 
 export interface ClientOptions {
   apiKey?: string;
   baseURL?: string;
 }
 
-export type GeppettoSpeakers =
-  | "semaine"
-  | "ryan"
-  | "kim"
-  | "spike"
-  | "obadiah"
-  | "poppy";
-export type GeppettoSpeakFormats = "wav" | "mp3" | "pcm" | "ogg";
+type RequestOptions = {
+  body?: any;
+  headers?: any;
+};
 
-export interface SpeakOptions {
-  // the text to speak
-  text: string;
-
-  // the voice to speak in (default is semaine)
-  voice?: GeppettoSpeakers; // "semaine" | "ryan"
-
-  // the rate of speech (default is 1)
-  speed?: number;
-
-  // the pitch of speech (default is 1)
-  pitch?: number;
-
-  // the audio format to output in (default is mp3)
-  // pcm is output in 16000hz 16bit signed little endian (s16le)
-  format?: GeppettoSpeakFormats; // "mp3" | "wav" | "ogg" | "pcm"
-
-  // how much to delay speech between punctuation (default is 150)
-  sentenceSilence?: number;
-
-  // if the response should be streamed or sync
-  stream?: boolean;
-}
-
-// TODO this should just be a type, not needed to be a schema.
-export const SeeOptionsSchema = z.object({
-  image: z.string().url().describe("base 64 encoded data uri"),
-  prompt: z
-    .string()
-    .default("describe this image")
-    .optional()
-    .describe("the question to ask about the image"),
-  system_prompt: z
-    .string()
-    .default("")
-    .optional()
-    .describe("what system prompt for the model to use"),
-  stream: z
-    .boolean()
-    .default(false)
-    .optional()
-    .describe("if we should have a streaming response"),
-  temperature: z
-    .number()
-    .default(0.2)
-    .optional()
-    .describe("the temperature of the model"),
-  max_tokens: z
-    .number()
-    .default(-1)
-    .optional()
-    .describe("the maximum number of tokens to generate"),
-  presence_penalty: z.number().default(0).optional(),
-  frequency_penalty: z.number().default(0).optional(),
-  top_p: z
-    .number()
-    .default(1)
-    .optional()
-    .describe("the cumulative probability of tokens to generate"),
-  verbose: z
-    .boolean()
-    .default(false)
-    .optional()
-    .describe("if the response should give more verbose information"),
+const getJsonOptions = (data: any): RequestOptions => ({
+  body: JSON.stringify(data),
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-export const SeeResponseSchema = z.object({
-  content: z.string().describe("the generated content"),
-});
+const getMultipartOptions = async (data: any): Promise<RequestOptions> => {
+  const form = new FormData();
 
-const TimingsSchema = z.object({
-  predicted_ms: z.number(),
-  predicted_n: z.number(),
-  predicted_per_second: z.number(),
-  prompt_ms: z.number(),
-});
+  // TODO handle if key is a File, Blob, or Buffer
 
-export const SeeResponseVerboseSchema = SeeResponseSchema.extend({
-  content: z.string(),
-  model: z.string(),
-  timings: TimingsSchema,
-  tokens_cached: z.number(),
-  tokens_evaluated: z.number(),
-  tokens_predicted: z.number(),
-});
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === "number") {
+      form.append(key, value.toString());
+    } else if (value instanceof Buffer) {
+      const type = await fileTypeFromBuffer(value);
+      if (!type) throw new Error("Could not determine file type");
+      const filename = `${key}.${type.ext}`;
+      const blob = new Blob([value], { type: type.mime });
+      form.append(key, blob, filename);
+    } else {
+      form.append(key, value);
+    }
+  }
 
-export const SeeStreamingResponseSchema = z.object({
-  content: z.string(),
-  stop: z.boolean(),
-});
-
-export type SeeOptions = z.infer<typeof SeeOptionsSchema>;
-export type SeeResponse = z.infer<typeof SeeResponseSchema>;
-export type SeeResponseVerbose = z.infer<typeof SeeResponseVerboseSchema>;
-export type SeeStreamingResponse = z.infer<typeof SeeStreamingResponseSchema>;
+  return {
+    body: form,
+  };
+};
 
 export class Geppetto {
   apiKey: string;
@@ -128,36 +76,43 @@ export class Geppetto {
 
   async _request(
     endpoint: string,
-    data: any,
+    opts: RequestOptions,
     responseType: "raw"
   ): Promise<Response>;
 
   async _request(
     endpoint: string,
-    data: any,
+    opts: RequestOptions,
     responseType: "json"
   ): Promise<any>;
 
   async _request(
     endpoint: string,
-    data: any,
+    opts: RequestOptions,
+    responseType: "text"
+  ): Promise<string>;
+
+  async _request(
+    endpoint: string,
+    opts: RequestOptions,
     responseType: "streamIterator"
   ): Promise<AsyncGenerator<Uint8Array>>;
 
   async _request(
     endpoint: string,
-    data: any,
-    responseType: "raw" | "json" | "streamIterator"
+    opts: RequestOptions,
+    responseType: "raw" | "json" | "streamIterator" | "text"
   ) {
     const url = `${this.baseURL}${endpoint}`;
+
     const options = {
       method: "POST",
       headers: {
         "User-Agent": `geppetto-nodejs`,
-        "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
+        ...opts.headers,
       },
-      body: JSON.stringify(data),
+      body: opts.body,
     };
 
     try {
@@ -168,6 +123,8 @@ export class Geppetto {
       if (!response.body) throw new Error("Response body is empty");
 
       if (responseType === "json") return await response.json();
+
+      if (responseType === "text") return await response.text();
 
       if (responseType === "streamIterator") {
         const reader = response.body.getReader();
@@ -206,7 +163,7 @@ export class Geppetto {
     params: SpeakOptions
   ): Promise<Buffer | ReadableStream<Uint8Array>> {
     const { stream, ...opts } = params;
-    const response = await this._request(`/speak`, opts, "raw");
+    const response = await this._request(`/speak`, getJsonOptions(opts), "raw");
 
     // in _request we have validated that body is not null
     if (stream) return response.body!;
@@ -217,7 +174,11 @@ export class Geppetto {
   private async *seeStream(
     params: SeeOptions & { stream: true }
   ): AsyncGenerator<SeeStreamingResponse> {
-    const response = await this._request(`/see`, params, "streamIterator");
+    const response = await this._request(
+      `/see`,
+      getJsonOptions(params),
+      "streamIterator"
+    );
 
     let buffer = "";
     const decoder = new TextDecoder();
@@ -255,11 +216,57 @@ export class Geppetto {
     if (params.stream) {
       return this.seeStream({ ...params, stream: true });
     }
-    const response = await this._request(`/see`, params, "json");
+    const response = await this._request(
+      `/see`,
+      getJsonOptions(params),
+      "json"
+    );
 
     if (params.verbose) {
       return SeeResponseVerboseSchema.parse(response);
     }
     return SeeResponseSchema.parse(response);
+  }
+
+  public hear(
+    params: HearOptions & { response_format: "verbose_json" }
+  ): Promise<HearResponseVerbose>;
+  public hear(
+    params: HearOptions & { response_format: "text" }
+  ): Promise<string>;
+  public hear(
+    params: HearOptions & { response_format: "srt" }
+  ): Promise<string>;
+  public hear(
+    params: HearOptions & { response_format: "vtt" }
+  ): Promise<string>;
+  public hear(params: HearOptions): Promise<HearResponse>;
+
+  public async hear(
+    params: HearOptions
+  ): Promise<HearResponse | HearResponseVerbose | string> {
+    if (
+      params.response_format === "verbose_json" ||
+      params.response_format === "json"
+    ) {
+      const response = await this._request(
+        `/hear`,
+        await getMultipartOptions(params),
+        "json"
+      );
+      if (params.response_format === "verbose_json") {
+        return HearResponseVerboseSchema.parse(response);
+      } else if (params.response_format === "json") {
+        return HearResponseSchema.parse(response);
+      }
+    }
+
+    const response = await this._request(
+      `/hear`,
+      await getMultipartOptions(params),
+      "text"
+    );
+
+    return response;
   }
 }
