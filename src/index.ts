@@ -245,6 +245,8 @@ export class Geppetto {
   public async hear(
     params: HearOptions
   ): Promise<HearResponse | HearResponseVerbose | string> {
+    if (!params.response_format) params.response_format = "json";
+
     if (
       params.response_format === "verbose_json" ||
       params.response_format === "json"
