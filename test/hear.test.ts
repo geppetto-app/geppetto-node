@@ -1,7 +1,6 @@
 import { test, expect } from "bun:test";
 import fs from "fs";
 import { Geppetto } from "../src";
-import fetch from "node-fetch";
 
 const geppetto = new Geppetto();
 
@@ -22,12 +21,26 @@ test("hear with File", async () => {
 
   const response = await geppetto.hear({
     file: file,
-    response_format: "json",
   });
 
   expect(response.text).toBeDefined();
   expect(response.text.length).toBeGreaterThan(0);
 });
+
+// test("verbose hear with File", async () => {
+//   const bunfile = Bun.file("./test/assets/realboy.mp3");
+//   const file = new File([bunfile], "realboy.mp3");
+
+//   const response = await geppetto.hear({
+//     file: file,
+//     response_format: "verbose_json",
+//   });
+
+//   expect(response.text).toBeDefined();
+//   expect(response.text.length).toBeGreaterThan(0);
+//   expect(response.text).toEqual(" I'm a real boy.");
+//   expect(response.duration).toBeDefined();
+// });
 
 test("hear with buffer", async () => {
   const file = fs.readFileSync("test/assets/realboy.mp3");

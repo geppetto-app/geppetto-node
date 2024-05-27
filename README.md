@@ -20,7 +20,11 @@ npm install @geppetto-app/geppetto
 * [See](#see)
     * [Examples](#see-examples)
     * [Params](#see-params)
-    * [Return Types](#see-return-types)
+* [Return Types](#see-return-types)
+* [Hear](#hear)
+    * [Examples](#hear-examples)
+    * [Params](#hear-params)
+    * [Return Types](#hear-return-types)
 
 
 ## Speak
@@ -120,6 +124,8 @@ The responses can be streamed.
 **Getting a description of an image**
 
 ```typescript
+import { Geppetto } from '@geppetto-app/geppetto';
+
 const geppetto = new Geppetto();
 
 const response = await geppetto.see({
@@ -132,6 +138,8 @@ console.log(response);
 **Getting a description with details about generation**
 
 ```typescript
+import { Geppetto } from '@geppetto-app/geppetto';
+
 const geppetto = new Geppetto();
 
 const response = await geppetto.see({
@@ -145,6 +153,8 @@ console.log(response);
 **Streaming response**
 
 ```typescript
+import { Geppetto } from '@geppetto-app/geppetto';
+
 const geppetto = new Geppetto();
 
 const stream = await geppetto.see({
@@ -248,5 +258,91 @@ type SeeStreamingResponse = {
 
     // if the generation is complete
     stop: boolean;
+}
+```
+
+## Hear
+
+Hear lets you send audio to the geppetto API and get back a transcription of the audio.
+
+### Hear Examples
+
+**Transcribing audio from a file**
+
+```typescript
+import fs from 'fs';
+import { Geppetto } from '@geppetto-app/geppetto';
+
+const geppetto = new Geppetto();
+
+const file = fs.readFileSync("<path to audio file>");
+const response = await geppetto.hear({
+    file: file,
+});
+
+console.log(response.text);
+```
+
+### Hear Params
+
+```typescript
+type HearOptions = {
+    // REQUIRED the audio file to transcribe. Max size: 25MB
+    file: Buffer | File;
+
+    // model to use for transcription
+    model?: "whisper-tiny"
+    
+    // language to transcribe in (ISO-639-1 format)
+    language?: string;
+
+    // what prompt to use for the transcription
+    prompt?: string;
+
+    // what format to respond in
+    response_format?: "json" | "text" | "srt" | "vtt" | "verbose_json";
+
+    // what temperature to use for the model
+    temperature?: number;
+
+    // The increment of temperature, between 0 and 1
+    temperature_inc?: number;
+}
+```
+
+### Hear Return Types
+
+**JSON**
+```typescript
+type HearResponse = {
+    text: string;
+}
+```
+
+**Verbose JSON**
+```typescript
+type HearResponseVerbose = {
+    text: string;
+    language: string;
+    task: "transcribe" | "translate";
+    duration: number;
+    segments: {
+        text: string;
+        temperature: number;
+        id: number;
+        start: number;
+        end: number;
+        tokens: number[];
+        words: HearResponseWord[];
+        avg_logprob: number;
+    }[];
+}
+
+type HearResponseWord = {
+    word: string;
+    start: number;
+    end: number;
+    t_dtw: number;
+    probability: number;
 }
 ```
