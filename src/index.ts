@@ -242,6 +242,7 @@ export class Geppetto {
   ): Promise<string>;
   public hear(params: HearOptions): Promise<HearResponse>;
 
+  // TODO need a polyfill or something for handling the file i think
   public async hear(
     params: HearOptions
   ): Promise<HearResponse | HearResponseVerbose | string> {

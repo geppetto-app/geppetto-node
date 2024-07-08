@@ -2,29 +2,24 @@ import { z } from "zod";
 
 const HEAR_SIZE_LIMIT = 25 * 1024 * 1024; // 25MB
 
+const fileSchema = z
+  .union([
+    z.instanceof(Buffer),
+    typeof File !== "undefined"
+      ? z
+          .instanceof(File)
+          .refine((f) => f.size <= HEAR_SIZE_LIMIT, {
+            message: "Max file size is 25MB",
+          })
+          .refine((f) => f.type.startsWith("audio/"), {
+            message: "File must be an audio file",
+          })
+      : z.never(),
+  ])
+  .optional();
+
 export const HearRequestSchema = z.object({
-  file: z
-    .instanceof(File)
-    .or(z.instanceof(Buffer))
-    .refine(
-      (f) =>
-        !f ||
-        ((f instanceof File || f instanceof Blob) &&
-          f.size <= HEAR_SIZE_LIMIT) ||
-        (f instanceof Buffer && f.length <= HEAR_SIZE_LIMIT),
-      {
-        message: "Max file size is 25MB",
-      }
-    )
-    .refine(
-      (f) =>
-        !f ||
-        ((f instanceof File || f instanceof Blob) &&
-          f.type.startsWith("audio/")),
-      {
-        message: "File must be an audio file",
-      }
-    ),
+  file: fileSchema,
   model: z.enum(["whisper-tiny"]).default("whisper-tiny").optional(),
   language: z.string().optional(),
   prompt: z.string().optional(),
